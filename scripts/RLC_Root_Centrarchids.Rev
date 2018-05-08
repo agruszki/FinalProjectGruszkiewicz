@@ -1,0 +1,423 @@
+################################################################################
+#
+# RevBayes Example: Bayesian inference of phylogeny using a GTR+Gamma+Inv
+#                   substitution model for a codon specific substitution models
+#
+# authors: Michael Landis, Sebastian Hoehna, Tracy A. Heath and Brian R. Moore
+#
+################################################################################
+
+
+
+#######################
+# Reading in the Data #
+#######################
+
+# read in the character data
+data_ND2 <- readDiscreteCharacterData("data/ND2_all_alignment_final.nex")
+data_s7 <- readDiscreteCharacterData("data/s7_alignment_fixnames.nex")
+data_Tmo4C4 <- readDiscreteCharacterData("data/Tmo-4C4_alignment_fixnames.nex")
+
+
+# partition for ND2 1st codon position
+data[1] <- data_ND2
+data[1].setCodonPartition( 1 )
+
+# partition for ND2 2nd codon position
+data[2] <- data_ND2
+data[2].setCodonPartition( 2 )
+
+# partition for ND2 3rd codon position
+data[3] <- data_ND2
+data[3].setCodonPartition( 3 )
+
+# partition for s7 all positions
+data[4] <- data_s7
+data[4].setCodonPartition( v(1,2,3) )
+
+# partition for Tmo4C4 1st codon position
+data[5] <- data_Tmo4C4
+data[5].setCodonPartition( 1 )
+
+# partition for Tmo4C4 2nd codon position
+data[6] <- data_Tmo4C4
+data[6].setCodonPartition( 2 )
+
+# partition for Tmo4C4 3rd codon position
+data[7] <- data_Tmo4C4
+data[7].setCodonPartition( 3 )
+
+n_data_subsets <- data.size()
+
+
+# Get some useful variables from the data. We need these later on.
+n_species <- data[1].ntaxa()
+n_branches <- 2*n_species - 2
+taxa <- data[1].taxa()
+
+mvi = 0
+mni = 0
+
+##################################
+#      Substitution Model        #
+#   Loop over each data subset   #
+##################################
+  
+    
+#####################################
+
+    # specify a lognormal distribution as the prior distribution on kappa
+    kappa_1 ~ dnLognormal(0.0,1.25)
+
+    # a simple scaling move to update kappa
+    moves[++mvi] = mvScale(kappa_1)
+
+    # Finally, create the HKY rate matrix
+    Q[1] := fnK80(kappa_1)
+
+    # +Gamma for partition 1
+    alpha_prior_mean_1 <- ln(2.0)
+    alpha_prior_sd_1 <- 0.587405
+    alpha_1 ~ dnLognormal( alpha_prior_mean_1, alpha_prior_sd_1 )
+    gamma_rates_1 := fnDiscretizeGamma( alpha_1, alpha_1, 4, false )
+
+    # add moves for the alpha parameter
+    moves[++mvi] = mvScale(alpha_1,weight=2)
+
+    # the probability of a site being invariable
+    pinvar_1=0.0
+
+######################################
+
+
+    pi_prior_2 <- v(1,1,1,1)
+    pi_2 ~ dnDirichlet(pi_prior_2)
+
+    # specify a move to propose updates to on pi
+    moves[++mvi] = mvBetaSimplex(pi_2, weight=2)
+    moves[++mvi] = mvDirichletSimplex(pi_2, weight=1)
+
+    # specify a lognormal distribution as the prior distribution on kappa
+    kappa_2 ~ dnLognormal(0.0,1.25)
+
+    # a simple scaling move to update kappa
+    moves[++mvi] = mvScale(kappa_2)
+
+    # Finally, create the HKY rate matrix
+    Q[2] := fnHKY(kappa_2,pi_2)
+
+    # +Gamma for partition 2
+    alpha_prior_mean_2 <- ln(2.0)
+    alpha_prior_sd_2 <- 0.587405
+    alpha_2 ~ dnLognormal( alpha_prior_mean_2, alpha_prior_sd_2 )
+    gamma_rates_2 := fnDiscretizeGamma( alpha_2, alpha_2, 4, false )
+
+    # add moves for the alpha parameter
+    moves[++mvi] = mvScale(alpha_2,weight=2)
+
+    # the probability of a site being invariable
+    pinvar_2 ~ dnBeta(1,1)
+    moves[++mvi] = mvScale(pinvar_2, lambda=0.1, tune=true, weight=2.0)
+    moves[++mvi] = mvSlide(pinvar_2, delta=0.1, tune=true, weight=2.0)
+
+###############################################
+
+    # exchangeability rates for partition 3
+    er_prior_3 <- v(1,1,1,1,1,1)
+    er_3 ~ dnDirichlet(er_prior_3)
+    moves[++mvi] = mvSimplexElementScale(er_3, alpha=10, tune=true, weight=3) 
+
+    # stationary frequencies for partition 3
+    pi_prior_3 <- v(1,1,1,1)
+    pi_3 ~ dnDirichlet(pi_prior_3)
+    moves[++mvi] = mvSimplexElementScale(pi_3, alpha=10, tune=true, weight=2) 
+
+    # rate matrix for partition 3
+    Q[3] := fnGTR(er_3,pi_3) 
+  
+    # +Gamma for partition 3
+    alpha_prior_mean_3 <- ln(2.0)
+    alpha_prior_sd_3 <- 0.587405
+    alpha_3 ~ dnLognormal( alpha_prior_mean_3, alpha_prior_sd_3 )
+    gamma_rates_3 := fnDiscretizeGamma( alpha_3, alpha_3, 4, false )
+
+    # add moves for the alpha parameter
+    moves[++mvi] = mvScale(alpha_3,weight=2)
+
+    # the probability of a site being invariable
+    pinvar_3 ~ dnBeta(1,1)
+    moves[++mvi] = mvScale(pinvar_3, lambda=0.1, tune=true, weight=2.0)
+    moves[++mvi] = mvSlide(pinvar_3, delta=0.1, tune=true, weight=2.0)
+
+###########################################
+
+    pi_prior_4 <- v(1,1,1,1)
+    pi_4 ~ dnDirichlet(pi_prior_4)
+
+    # specify a move to propose updates to on pi
+    moves[++mvi] = mvBetaSimplex(pi_4, weight=2)
+    moves[++mvi] = mvDirichletSimplex(pi_4, weight=1)
+
+    # specify a lognormal distribution as the prior distribution on kappa
+    kappa_4 ~ dnLognormal(0.0,1.25)
+
+    # a simple scaling move to update kappa
+    moves[++mvi] = mvScale(kappa_4)
+
+    # Finally, create the HKY rate matrix
+    Q[4] := fnHKY(kappa_4,pi_4)
+
+    # +Gamma for partition 4
+    alpha_prior_mean_4 <- ln(2.0)
+    alpha_prior_sd_4 <- 0.587405
+    alpha_4 ~ dnLognormal( alpha_prior_mean_4, alpha_prior_sd_4 )
+    gamma_rates_4 := fnDiscretizeGamma( alpha_4, alpha_4, 4, false )
+
+    # add moves for the alpha parameter
+    moves[++mvi] = mvScale(alpha_4,weight=2)
+
+    # the probability of a site being invariable
+    pinvar_4=0.0
+
+###########################################
+
+    
+    # specify the stationary frequency parameters
+    pi_prior_5 <- v(1,1,1,1)
+    pi_5 ~ dnDirichlet(pi_prior_5)
+    moves[++mvi] = mvBetaSimplex(pi_5, weight=2.0)
+    moves[++mvi] = mvDirichletSimplex(pi_5, weight=1.0)
+
+    # create a deterministic variable for the rate matrix
+    Q[5] := fnF81(pi_5)
+
+    # +Gamma for partition 5
+    alpha_prior_mean_5 <- ln(2.0)
+    alpha_prior_sd_5 <- 0.587405
+    alpha_5 ~ dnLognormal( alpha_prior_mean_5, alpha_prior_sd_5 )
+    gamma_rates_5 := fnDiscretizeGamma( alpha_5, alpha_5, 4, false )
+
+    # add moves for the alpha parameter
+    moves[++mvi] = mvScale(alpha_5,weight=2)
+
+    # the probability of a site being invariable
+    pinvar_5=0.0
+
+#############################################
+
+    # specify the stationary frequency parameters
+    pi_prior_6 <- v(1,1,1,1)
+    pi_6 ~ dnDirichlet(pi_prior_6)
+    moves[++mvi] = mvBetaSimplex(pi_6, weight=2.0)
+    moves[++mvi] = mvDirichletSimplex(pi_6, weight=1.0)
+
+    # create a deterministic variable for the rate matrix
+    Q[6] := fnF81(pi_6)
+
+    # the probability of a site being invariable
+    pinvar_6=0.0
+
+###########################################
+
+    # specify a lognormal distribution as the prior distribution on kappa
+    kappa_7 ~ dnLognormal(0.0,1.25)
+
+    # a simple scaling move to update kappa
+    moves[++mvi] = mvScale(kappa_7)
+
+    # Finally, create the HKY rate matrix
+    Q[7] := fnK80(kappa_7)
+
+    # +Gamma for partition 7
+    alpha_prior_mean_7 <- ln(2.0)
+    alpha_prior_sd_7 <- 0.587405
+    alpha_7 ~ dnLognormal( alpha_prior_mean_7, alpha_prior_sd_7 )
+    gamma_rates_7 := fnDiscretizeGamma( alpha_7, alpha_7, 4, false )
+
+    # add moves for the alpha parameter
+    moves[++mvi] = mvScale(alpha_7,weight=2)
+
+    # the probability of a site being invariable
+    pinvar_7=0.0
+
+
+
+##############
+# Tree model #
+##############
+
+### the birth rate is a stochastic random variable drawn from a lognormal prior
+### MCMC samples this variable using a scale proposal
+diversification_mean <- ln( ln(n_species/2.0) / 97.3 )
+diversification_sd <- 0.587405*2
+diversification ~ dnLognormal(mean=diversification_mean,sd=diversification_sd)
+moves[++mvi] = mvScale(diversification,lambda=1.0,tune=true,weight=3.0)
+
+turnover_mean <- ln( ln(n_species/2.0) / 97.3 )
+turnover_sd <- 0.587405*2
+turnover ~ dnLognormal(mean=turnover_mean,sd=turnover_sd)
+moves[++mvi] = mvScale(turnover,lambda=1.0,tune=true,weight=3.0)
+
+### Transform the parameters
+birth_rate := diversification + turnover
+death_rate := turnover
+
+### rho is the probability of sampling species at the present
+### fix this to 367/450, since there are ~450 described species of primates
+### and we have sampled 367
+rho <- 1.0
+
+### the BDP is conditioned on the root time
+### here we use an informative prior on the root age
+### this prior is a normal distribution with mean 90 and standard deviation of 6
+root_time ~ dnNormal(mean=97.3, sd=7.48, min=0.0, max=5000.0)
+moves[++mvi] = mvScale(root_time, weight=2.0)
+
+### the time tree is a stochastic node modeled by the constant rate birth-death process (dnBDP)
+psi ~ dnBDP(lambda=birth_rate, mu=death_rate, rho=rho, rootAge=root_time, samplingStrategy="uniform",
+condition="survival", taxa=taxa)
+
+
+### add some moves that change the tree
+moves[++mvi] = mvNarrow(psi, weight=5.0)
+moves[++mvi] = mvNNI(psi, weight=1.0)
+moves[++mvi] = mvFNPR(psi, weight=3.0)
+moves[++mvi] = mvGPR(psi, weight=1.0)
+moves[++mvi] = mvSubtreeScale(psi, weight=3.0)
+moves[++mvi] = mvNodeTimeSlideUniform(psi, weight=15.0)
+
+
+### now we additionally add a deterministic variable for the age of
+### Lepomis
+clade_Lepomis = clade("Lepomis_auritus", "Lepomis_cyanellus", "Lepomis_cyanellus2", "Lepomis_gibbosus", "Lepomis_humilis", 
+"Lepomis_humilis2", "Lepomis_macrochirus", "Lepomis_macrochirus2", "Lepomis_marginatus", "Lepomis_megalotis", 
+"Lepomis_megalotis2", "Lepomis_microlophus", "Lepomis_miniatus", "Lepomis_miniatus2", "Lepomis_punctatus", 
+"Lepomis_symmetricus", "Chaenobryttus_gulosus", "Chaenobryttus_gulosus2")
+age_Lepomis := tmrca(psi, clade_Lepomis)
+
+### Micropterus
+clade_Micropterus = clade("Micropterus_cataractae", "Micropterus_coosae", "Micropterus_dolomieu", "Micropterus_dolomieu2", 
+"Micropterus_floridanus", "Micropterus_floridanus2", "Micropterus_notius", "Micropterus_notius2", "Micropterus_punctulatus", 
+"Micropterus_punctulatus2", "Micropterus_salmoides", "Micropterus_treculii", "Micropterus_treculii2")
+age_Micropterus := tmrca(psi, clade_Micropterus)
+
+### Ambloplites
+clade_Ambloplites = clade("Ambloplites_ariommus", "Ambloplites_cavifrons", "Ambloplites_constellatus", 
+"Ambloplites_rupestris")
+age_Ambloplites := tmrca(psi, clade_Ambloplites)
+
+### Pomoxis
+clade_Pomoxis = clade("Pomoxis_annularis", "Pomoxis_annularis2", "Pomoxis_nigromaculatus", "Pomoxis_nigromaculatus2", 
+"Pomoxis_nigromaculatus3")
+age_Pomoxis := tmrca(psi, clade_Pomoxis)
+
+### Enneacanthus
+clade_Enneacanthus = clade("Enneacanthus_chaetodon", "Enneacanthus_gloriosus", "Enneacanthus_obesus")
+age_Enneacanthus := tmrca(psi, clade_Enneacanthus)
+
+### Centrarchidae
+clade_Centrarchidae = clade("Lepomis_auritus", "Lepomis_cyanellus", "Lepomis_cyanellus2", "Lepomis_gibbosus", "Lepomis_humilis",
+"Lepomis_humilis2", "Lepomis_macrochirus", "Lepomis_macrochirus2", "Lepomis_marginatus", "Lepomis_megalotis",
+"Lepomis_megalotis2", "Lepomis_microlophus", "Lepomis_miniatus", "Lepomis_miniatus2", "Lepomis_punctatus",
+"Lepomis_symmetricus", "Chaenobryttus_gulosus", "Chaenobryttus_gulosus2", "Micropterus_cataractae", "Micropterus_coosae",
+"Micropterus_dolomieu", "Micropterus_dolomieu2", "Micropterus_floridanus", "Micropterus_floridanus2", "Micropterus_notius",
+"Micropterus_notius2", "Micropterus_punctulatus", "Micropterus_punctulatus2", "Micropterus_salmoides",
+"Micropterus_treculii", "Micropterus_treculii2", "Ambloplites_ariommus", "Ambloplites_cavifrons", "Ambloplites_constellatus",
+"Ambloplites_rupestris", "Archoplites_interruptus","Pomoxis_annularis", "Pomoxis_annularis2", "Pomoxis_nigromaculatus",
+"Pomoxis_nigromaculatus2","Pomoxis_nigromaculatus3", "Enneacanthus_chaetodon", "Enneacanthus_gloriosus",
+"Enneacanthus_obesus", "Centrarchus_macropterus", "Acantharchus_pomotis")
+age_Centrarchidae := tmrca(psi, clade_Centrarchidae)
+
+
+
+########
+# RLC  #
+########
+
+
+# get a random variable for the probability of a rate change
+rho <- 0.01
+
+log_clock_mean ~ dnUniform(-6,1)
+moves[++mvi] = mvSlide(log_clock_mean, weight=2.0)
+clock_mean := 10^log_clock_mean
+
+for (i in n_branches:1) {
+   rateChangeProbability[i] := Probability(1-rho)
+   clockRateMultiplier[i] ~ dnReversibleJumpMixture(1, dnGamma(2,2), rateChangeProbability[i] )
+   if ( psi.isRoot( psi.parent(i) ) ) {
+      branch_rates[i] := clock_mean * clockRateMultiplier[i]
+   } else {
+      branch_rates[i] := branch_rates[psi.parent(i)] * clockRateMultiplier[i]
+   }
+   clockRateChange[i] := ifelse( clockRateMultiplier[i] == 1, 0, 1 )
+   moves[++mvi] = mvRJSwitch(clockRateMultiplier[i], weight=1.0)
+   moves[++mvi] = mvScale(clockRateMultiplier[i], lambda=0.1, tune=true, weight=2.0)
+}
+
+numRateChanges := sum( clockRateChange )
+mean_rt := mean(branch_rates)
+
+
+
+
+###################
+# PhyloCTMC Model #
+###################
+
+
+    seq_1 ~ dnPhyloCTMC(tree=psi, Q=Q[1], branchRates=branch_rates, siteRates=gamma_rates_1,
+    type="DNA")
+    seq_1.clamp(data[1])
+
+    seq_2 ~ dnPhyloCTMC(tree=psi, Q=Q[2], branchRates=branch_rates, siteRates=gamma_rates_2, pInv=pinvar_2,
+    type="DNA")
+    seq_2.clamp(data[2])
+
+    seq_3 ~ dnPhyloCTMC(tree=psi, Q=Q[3], branchRates=branch_rates, siteRates=gamma_rates_3, pInv=pinvar_3,
+    type="DNA")
+    seq_3.clamp(data[3])
+
+    seq_4 ~ dnPhyloCTMC(tree=psi, Q=Q[4], branchRates=branch_rates, siteRates=gamma_rates_4,
+    type="DNA")
+    seq_4.clamp(data[4])
+
+    seq_5 ~ dnPhyloCTMC(tree=psi, Q=Q[5], branchRates=branch_rates, siteRates=gamma_rates_5, type="DNA")
+    seq_5.clamp(data[5])
+
+    seq_6 ~ dnPhyloCTMC(tree=psi, Q=Q[6], branchRates=branch_rates, type="DNA")
+    seq_6.clamp(data[6])
+
+    seq_7 ~ dnPhyloCTMC(tree=psi, Q=Q[7], branchRates=branch_rates, siteRates=gamma_rates_7,
+    type="DNA")
+    seq_7.clamp(data[7])
+
+
+
+
+############
+# Analysis #
+############
+
+mymodel = model(Q)
+
+# add monitors
+monitors[++mni] = mnModel(filename="output/RLC_Root_Centrarchids_500.log", printgen=10, separator = TAB)
+monitors[++mni] = mnExtNewick(tree=psi, filename="output/RLC_Root_Centrarchids_500.trees", isNodeParameter=FALSE, printgen=10,
+separator = TAB,branch_rates)
+monitors[++mni] = mnScreen(mean_rt, root_time, age_Centrarchidae, printgen=1000)
+
+# run the analysis
+mymcmc = mcmc(mymodel, moves, monitors)
+mymcmc.burnin(125000,200)
+mymcmc.run(500000)
+
+# summarize output
+treetrace = readTreeTrace("output/RLC_Root_Centrarchids_500.trees", treetype="clock")
+#treetrace.summarize()
+
+map_tree = mapTree(treetrace,"output/RLC_Root_Centrarchids_500.tre")
+
+
+# you may want to quit RevBayes now
+q()
